@@ -1,0 +1,29 @@
+#!/usr/bin/awk -f
+
+BEGIN {
+    ntests = 0;
+    print "import Test.HUnit";
+}
+
+/^>/ {
+    sub(">[ \t]*", "");
+    print;
+    next;
+}
+
+/==>/ {
+    printf "\n%s = TestLabel \"line %d\" $ TestCase\n",
+	sprintf("t_%d", ++ntests), NR;
+    match($0, /^(.*[^ \t])[ \t]+==>[ \t]+(.*)$/, m);
+    printf "    $ assertEqual \"\" (%s) (%s)\n", m[1], m[2];
+}
+
+END {
+    printf "\nmain = runTestTT $ TestList [";
+    if (ntests) {
+	printf "t_1";
+	for (i = 1; i <= ntests; i++)
+	    printf ", t_%d", i;
+    }
+    print "]";
+}
