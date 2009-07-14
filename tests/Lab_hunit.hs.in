@@ -1,0 +1,17 @@
+> import Lab.TLV
+> import qualified Data.ByteString.Lazy.Char8 as C
+
+> p = C.pack
+> tagS = tag . p
+
+tag C.empty      ==> (Left "EOF", C.empty)
+tagS "FFF"       ==> (Left "EOF", C.empty)
+tagS "CA02hello" ==> (Right $ ComplU 'A' (p "he"), p "llo")
+tagS "P_123"     ==> (Right $ Prim '_' (p "2"),    p "3")
+tagS "FFFC.1212" ==> tagS "C.1212" -- XXX this can be QuickCheck'ed
+tagS "PX9abc"    ==> (Left "not enough content octets", p "PX9abc")
+tagS "pX1_"      ==> (Left "unknown tag type",          p "pX1_")
+tagS "CXYZ"      ==> (Left "invalid length encoding",   p "CXYZ")
+
+-- XXX `generate' does not understand multi-line
+tagS "CR38PT12PD820080713CS19PM9501234567PI4IMSIFF" ==> (Right $ ComplU 'R' (p "PT12PD820080713CS19PM9501234567PI4IMSI"), p "FF")

@@ -6,8 +6,10 @@ BEGIN {
     print "import System.Exit (exitSuccess, exitFailure)";
 }
 
+/--/ { sub(/[ \t]*--.*$/, ""); } # rstrip comments
+
 /^>/ {
-    sub(">[ \t]*", "");
+    sub(/>[ \t]*/, "");
     print;
     next;
 }
@@ -16,7 +18,7 @@ BEGIN {
     printf "\n%s = TestLabel \"line %d\" $ TestCase\n",
 	sprintf("t_%d", ++ntests), NR;
     match($0, /^(.*[^ \t])[ \t]+==>[ \t]+(.*)$/, m);
-    printf "    $ assertEqual \"\" (%s) (%s)\n", m[1], m[2];
+    printf "    $ assertEqual \"\" (%s) (%s)\n", m[2], m[1];
 }
 
 END {
