@@ -1,4 +1,4 @@
-module BBTest.Util where
+module BBTest.Util ( takeExactly ) where
 
 -- http://is.gd/1wSWU (haddock: Data.ByteString.Lazy.Char8)
 import qualified Data.ByteString.Lazy.Char8 as C

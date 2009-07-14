@@ -1,0 +1,11 @@
+name:		BBTest
+version:	0.1
+author:		Valery V. Vorotyntsev <valery.vv@gmail.com>
+synopsis:	Black-box testing of UMC preprocessing system
+cabal-version:	>= 1.2
+build-type:	Simple
+stability:	experimental
+
+library
+  build-depends:	base
+  exposed-modules:	BBTest.Util

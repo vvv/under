@@ -3,6 +3,7 @@
 BEGIN {
     ntests = 0;
     print "import Test.HUnit";
+    print "import System.Exit (exitSuccess, exitFailure)";
 }
 
 /^>/ {
@@ -19,11 +20,14 @@ BEGIN {
 }
 
 END {
-    printf "\nmain = runTestTT $ TestList [";
+    printf "\nmain = do\n";
+    printf "  counts <- runTestTT $ TestList [";
     if (ntests) {
 	printf "t_1";
-	for (i = 1; i <= ntests; i++)
+	for (i = 2; i <= ntests; i++)
 	    printf ", t_%d", i;
     }
     print "]";
+    print "  if errors counts + failures counts == 0";
+    print "    then exitSuccess else exitFailure";
 }
