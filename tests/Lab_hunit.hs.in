@@ -1,17 +1,17 @@
 > import Lab.TLV
 > import qualified Data.ByteString.Lazy.Char8 as C
 
-> p = C.pack
-> tagS = tag . p
+> ptag = parse tag . C.pack
+> bs = C.pack
 
-tag C.empty      ==> (Left "EOF", C.empty)
-tagS "FFF"       ==> (Left "EOF", C.empty)
-tagS "CA02hello" ==> (Right $ ComplU 'A' (p "he"), p "llo")
-tagS "P_123"     ==> (Right $ Prim '_' (p "2"),    p "3")
-tagS "FFFC.1212" ==> tagS "C.1212" -- XXX this can be QuickCheck'ed
-tagS "PX9abc"    ==> (Left "not enough content octets", p "PX9abc")
-tagS "pX1_"      ==> (Left "unknown tag type",          p "pX1_")
-tagS "CXYZ"      ==> (Left "invalid length encoding",   p "CXYZ")
+parse tag C.empty      ==> (Left "EOF", C.empty)
+ptag "FFF"       ==> (Left "EOF", C.empty)
+ptag "CA02hello" ==> (Right $ ComplU 'A' (bs "he"), bs "llo")
+ptag "P_123"     ==> (Right $ Prim '_' (bs "2"),    bs "3")
+ptag "FFFC.1212" ==> ptag "C.1212" -- XXX this could be QuickCheck'ed
+ptag "PX9abc"    ==> (Left "not enough content octets", bs "PX9abc")
+ptag "pX1_"      ==> (Left "unknown tag type",          bs "pX1_")
+ptag "CXYZ"      ==> (Left "invalid length encoding",   bs "CXYZ")
 
 -- XXX `generate' does not understand multi-line
-tagS "CR38PT12PD820080713CS19PM9501234567PI4IMSIFF" ==> (Right $ ComplU 'R' (p "PT12PD820080713CS19PM9501234567PI4IMSI"), p "FF")
+ptag "CR38PT12PD820080713CS19PM9501234567PI4IMSIFF" ==> (Right $ ComplU 'R' (bs "PT12PD820080713CS19PM9501234567PI4IMSI"), bs "FF")
