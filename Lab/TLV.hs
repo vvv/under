@@ -1,5 +1,5 @@
 -- | Type-length-value decoding operations.
-module Lab.TLV ( parse, Tag(..), tag ) where
+module Lab.TLV (parse, Tag(..), tag, tags) where
 
 import BBTest.Util (takeExactly)
 
@@ -10,19 +10,20 @@ import qualified Data.ByteString.Lazy.Char8 as C
 import Data.Char (isDigit)
 
 type BStr = C.ByteString
+type Err = String
 
 ------------------------------------------------------------------------
 -- general parsing ``combinators''
 
-type Parser a = ErrorT String (State BStr) a
+type Parser a = ErrorT Err (State BStr) a
 
-runParser :: Parser a -> BStr -> (Either String a, BStr)
+runParser :: Parser a -> BStr -> (Either Err a, BStr)
 runParser ev s = runState (runErrorT ev) s
 
 parse = runParser
 
 ------------------------------------------------------------------------
--- Tag data type and its parser
+-- Tag data type and its parsers
 
 type TagID = Char
 
@@ -52,3 +53,12 @@ tag = do s <- get
                                     put rest
                                     return (mktag tid content)
                  else throwError "invalid length encoding"
+
+tags :: BStr -> [Either Err Tag]
+tags s = acc [] s
+    where
+      acc ts s = let (r, s') = parse tag s
+                     ts'     = ts ++ [r]
+                 in case r of
+                      Right _ -> acc ts' s'
+                      _       -> ts'

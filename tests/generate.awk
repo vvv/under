@@ -15,10 +15,9 @@ BEGIN {
 }
 
 /==>/ {
-    printf "\n%s = TestLabel \"line %d\" $ TestCase\n",
-	sprintf("t_%d", ++ntests), NR;
+    printf "\n%s = TestCase", sprintf("t_%d", ++ntests);
     match($0, /^(.*[^ \t])[ \t]+==>[ \t]+(.*)$/, m);
-    printf "    $ assertEqual \"\" (%s) (%s)\n", m[2], m[1];
+    printf " $ assertEqual \"\" (%s) (%s)\n", m[2], m[1];
 }
 
 END {
