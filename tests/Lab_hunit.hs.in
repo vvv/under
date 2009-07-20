@@ -4,20 +4,26 @@
 > ptag = parse tag . C.pack
 > bs = C.pack
 
-parse tag C.empty ==> (Left "EOF", C.empty)
-ptag "FFF"        ==> (Left "EOF", C.empty)
+parse tag C.empty ==> (Left EOF, C.empty)
+ptag "FFF"        ==> (Left EOF, C.empty)
 ptag "CA02hello"  ==> (Right $ ComplU 'A' (bs "he"), bs "llo")
 ptag "P_123"      ==> (Right $ Prim '_' (bs "2"),    bs "3")
-ptag "FFFC.1212"  ==> ptag "C.1212" -- XXX this could be QuickCheck'ed
-ptag "PX9abc"     ==> (Left "not enough content octets", bs "PX9abc")
-ptag "pX1_"       ==> (Left "unknown tag type",          bs "pX1_")
-ptag "CXYZ"       ==> (Left "invalid length encoding",   bs "CXYZ")
+ptag "FFFC.1212"  ==> ptag "C.1212" -- XXX QUICKCHECKME
+ptag "PX9abc"     ==> (Left $ Err "not enough content octets", bs "PX9abc")
+ptag "pX1_"       ==> (Left $ Err "unknown tag type",          bs "pX1_")
+ptag "CXYZ"       ==> (Left $ Err "invalid length encoding",   bs "CXYZ")
 
 ptag "CR38PT12PD820080713CS19PM9501234567PI4IMSIFF"
          ==> (Right $ ComplU 'R' (bs "PT12PD820080713CS19PM9501234567PI4IMSI")
              , bs "FF")
 
-tags (bs "Pa0FFFCa31Pb204Cb22Pc6090710Cc09Pd6101335FFF")
-         ==> [Right (Prim 'a' C.empty)
-             , Right (ComplU 'a' $ bs "Pb204Cb22Pc6090710Cc09Pd6101335")
-             , Left "EOF"]
+parseTags (bs "Pa0FFFCa31Pb204Cb22Pc6090710Cc09Pd6101335FFF")
+              ==> [ Right (Prim 'a' C.empty)
+                  , Right (ComplU 'a' $ bs "Pb204Cb22Pc6090710Cc09Pd6101335")
+                  ]
+
+parseTags (bs "P12howdy")
+              ==> [Right (Prim '1' $ bs "ho"), Left (Err "unknown tag type")]
+
+parseTags C.empty      ==> []
+parseTags (bs "FFFFF") ==> []

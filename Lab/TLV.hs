@@ -1,5 +1,6 @@
+{-# OPTIONS_GHC -Wall #-}
 -- | Type-length-value decoding operations.
-module Lab.TLV (parse, Tag(..), tag, tags) where
+module Lab.TLV (Err(..), parse, Tag(..), tag, parseTags) where
 
 import BBTest.Util (takeExactly)
 
@@ -10,16 +11,20 @@ import qualified Data.ByteString.Lazy.Char8 as C
 import Data.Char (isDigit)
 
 type BStr = C.ByteString
-type Err = String
+
+data Err = EOF | Err String
+           deriving (Show, Eq)
+
+instance Error Err where
+    strMsg = Err
 
 ------------------------------------------------------------------------
 -- general parsing ``combinators''
 
 type Parser a = ErrorT Err (State BStr) a
 
-runParser :: Parser a -> BStr -> (Either Err a, BStr)
+runParser, parse :: Parser a -> BStr -> (Either Err a, BStr)
 runParser ev s = runState (runErrorT ev) s
-
 parse = runParser
 
 ------------------------------------------------------------------------
@@ -35,30 +40,31 @@ data Tag = Prim TagID BStr   -- ^ Primitive tag
 tag :: Parser Tag
 tag = do s <- get
          case C.uncons s of
-           Nothing -> throwError "EOF"
+           Nothing -> throwError EOF
            Just ('F', s') -> put s' >> tag
            Just ('P', s') -> g Prim   2 s'
            Just ('C', s') -> g ComplU 3 s'
-           _ -> throwError "unknown tag type"
+           _ -> throwError (Err "unknown tag type")
     where
       g mktag nbytes s = do
         case takeExactly nbytes s of
-          Nothing -> throwError "incomplete tag"
+          Nothing -> throwError (Err "incomplete tag")
           Just (idlen, s') ->
               let (tid, len) = (C.head idlen, C.tail idlen)
               in if C.all isDigit len
                  then case takeExactly (read $ C.unpack len) s' of
-                        Nothing -> throwError "not enough content octets"
+                        Nothing -> throwError (Err "not enough content octets")
                         Just (content, rest) -> do
                                     put rest
                                     return (mktag tid content)
-                 else throwError "invalid length encoding"
+                 else throwError (Err "invalid length encoding")
 
-tags :: BStr -> [Either Err Tag]
-tags s = acc [] s
+parseTags :: BStr -> [Either Err Tag]
+parseTags = acc []
     where
       acc ts s = let (r, s') = parse tag s
                      ts'     = ts ++ [r]
                  in case r of
-                      Right _ -> acc ts' s'
-                      _       -> ts'
+                      Right _  -> acc ts' s'
+                      Left EOF -> ts
+                      _        -> ts'
