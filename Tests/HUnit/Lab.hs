@@ -6,9 +6,6 @@ import Tests.Util ((==>))
 import qualified Data.ByteString.Lazy.Char8 as C
 import Test.HUnit (Test(..))
 
-------------------------------------------------------------------------
--- tests
-
 ptag s = parse tag (C.pack s, 1)
 bs = C.pack
 
