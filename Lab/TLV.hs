@@ -11,6 +11,7 @@ import qualified Data.ByteString.Lazy.Char8 as C
 import Data.Char (isDigit)
 
 type BStr = C.ByteString
+type StrPos = (BStr, Int) -- ^ String to parse and file position (byte #)
 
 data Err = EOF | Err String
            deriving (Show, Eq)
@@ -21,9 +22,9 @@ instance Error Err where
 ------------------------------------------------------------------------
 -- general parsing ``combinators''
 
-type Parser a = ErrorT Err (State BStr) a
+type Parser a = ErrorT Err (State StrPos) a
 
-runParser, parse :: Parser a -> BStr -> (Either Err a, BStr)
+runParser, parse :: Parser a -> StrPos -> (Either Err a, StrPos)
 runParser ev s = runState (runErrorT ev) s
 parse = runParser
 
@@ -38,33 +39,36 @@ data Tag = Prim TagID BStr   -- ^ Primitive tag
            deriving (Show, Eq)
 
 tag :: Parser Tag
-tag = do s <- get
+tag = do (s, pos) <- get
          case C.uncons s of
            Nothing -> throwError EOF
-           Just ('F', s') -> put s' >> tag
-           Just ('P', s') -> g Prim   2 s'
-           Just ('C', s') -> g ComplU 3 s'
-           _ -> throwError (Err "unknown tag type")
+           Just ('F', s') -> put (s', pos+1) >> tag
+           Just ('P', s') -> g Prim   2 s' pos
+           Just ('C', s') -> g ComplU 3 s' pos
+           _ -> err "unknown tag type" pos
     where
-      g mktag nbytes s = do
-        case takeExactly nbytes s of
-          Nothing -> throwError (Err "incomplete tag")
-          Just (idlen, s') ->
-              let (tid, len) = (C.head idlen, C.tail idlen)
-              in if C.all isDigit len
-                 then case takeExactly (read $ C.unpack len) s' of
-                        Nothing -> throwError (Err "not enough content octets")
-                        Just (content, rest) -> do
-                                    put rest
-                                    return (mktag tid content)
-                 else throwError (Err "invalid length encoding")
+      err msg pos = throwError . Err $ msg ++ ": byte " ++ show pos
 
-parseTags :: BStr -> [Either Err Tag]
+      g mktag nbytes s pos = do
+        case takeExactly nbytes s of
+          Nothing -> err "incomplete tag" pos
+          Just (idlen, s') ->
+              let (tid, slen) = (C.head idlen, C.tail idlen)
+              in if C.all isDigit slen
+                 then let len = read (C.unpack slen)
+                      in case takeExactly len s' of
+                           Nothing -> err "not enough content octets" pos
+                           Just (content, rest)
+                               -> do put (rest, pos + 1 + nbytes + len)
+                                     return (mktag tid content)
+                 else err "invalid length encoding" pos
+
+parseTags :: StrPos -> [Either Err Tag]
 parseTags = acc []
     where
-      acc ts s = let (r, s') = parse tag s
-                     ts'     = ts ++ [r]
-                 in case r of
-                      Right _  -> acc ts' s'
-                      Left EOF -> ts
-                      _        -> ts'
+      acc ts sp = let (r, sp') = parse tag sp
+                      ts'      = ts ++ [r]
+                  in case r of
+                       Right _  -> acc ts' sp'
+                       Left EOF -> ts
+                       _        -> ts'
