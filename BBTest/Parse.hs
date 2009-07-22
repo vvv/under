@@ -7,7 +7,7 @@ import Control.Monad.State (State, runState)
 
 type BStr = C.ByteString
 
--- | String to be parsed and [file] position (1-based byte address)
+-- | String to be parsed + file position (byte address, 1-based)
 type StrPos = (BStr, Int)
 
 data Err = Err String -- ^ parsing error
