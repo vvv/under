@@ -38,7 +38,7 @@ test = TestLabel "BER" $ TestList [
  , parseTag (pk $ replicate 4 '\xff', 10) ==> (Left EOF, (C.empty, 14))
 
  , parseTag (pk (raw sr), 10)
-                ==> ( Right $ ConsU (Private 1) (pk . raw $ dropB 2 sr)
+                ==> ( Right $ ConsU (Private, 1) (pk . raw $ dropB 2 sr)
                     , (C.empty, 10 + length (raw sr)) )
 
    -- XXX

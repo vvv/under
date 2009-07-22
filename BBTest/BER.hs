@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wall #-}
 -- | Basic Encoding Rules (BER) parsing
 --
 -- XXX TODO:
@@ -7,11 +8,14 @@
 --  * configurable fillers ('\xff', etc.)
 --
 module BBTest.BER (
-                   TagID(..),
-                   Tag(..),
                    parseTag,
                    parseTags,
-                   tagClass
+                   Tag(..),
+                   TagID,
+                   TagClass(..),
+
+                   -- testing only (?)
+                   tagInfo,
                   ) where
 
 import BBTest.Parse
@@ -20,7 +24,7 @@ import BBTest.Parse
 import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.Error (throwError)
 import Control.Monad.State (get, put)
-import Data.Bits ((.&.), shiftR)
+import Data.Bits ((.&.), shiftR, testBit)
 import Data.Char (ord)
 
 -- | ASN.1 tag
@@ -29,25 +33,42 @@ data Tag = Prim TagID BStr  -- ^ primitive tag
          | ConsU TagID BStr -- ^ constructed tag with unparsed contents
            deriving (Eq, Show)
 
--- | Tag identifier
-data TagID = Universal Int
-           | Application Int
-           | ContextSpecific Int
-           | Private Int
-             deriving (Eq, Show)
+type TagID = (TagClass, Int)
+
+data TagClass = Universal
+              | Application
+              | ContextSpecific
+              | Private
+                deriving (Eq, Show)
+
+-- | Get tag information from the identifier octet.
+--
+-- Returned value consists of:
+--
+--   - tag class,
+--
+--   - whether tag encoding is constructed ('False' = primitive)
+--
+--   - 'Just' \<tag number\> (if tag number \<= 31) or 'Nothing' (\>= 32).
+tagInfo :: Char -> (TagClass, Bool, Maybe Int)
+tagInfo c = (cls, consp, mnum)
+    where
+      cls = [Universal, Application, ContextSpecific, Private]
+            !! ((n .&. 0xc0) `shiftR` 6)
+      consp = n `testBit` 5
+      mnum = case n .&. 0x1f of { 0x1f -> Nothing; n' -> Just n' }
+      n = ord c
 
 tag :: Parser Tag
 tag = do (s, pos) <- get
          case C.uncons s of
            Nothing -> throwError EOF
            Just ('\xff', s') -> put (s', pos+1) >> tag
-           Just (c, s') -> return $ Prim (tagClass c $ 666) s'
-    where
-      err msg pos = throwError . Err $ msg ++ ": byte " ++ show pos
-
-tagClass :: Char -> Int -> TagID
-tagClass c = [Universal, Application, ContextSpecific, Private]
-             !! (((ord c) .&. 0xc0) `shiftR` 6)
+           Just (c, s') -> let (cls, consp, Just num) = tagInfo c -- XXX Just
+                               f = if consp then ConsU else Prim
+                           in return $ f (cls, num) s'
+--     where
+--       err msg pos = throwError . Err $ msg ++ ": byte " ++ show pos
 
 parseTag :: StrPos -> (Either Err Tag, StrPos)
 parseTag = runParser tag

@@ -1,26 +1,41 @@
 {-# OPTIONS_GHC -Wall #-}
 module Tests.QuickCheck.BER (runTests) where
 
-import BBTest.BER (tagClass, TagID(..))
+import BBTest.BER (TagClass(..), tagInfo)
 
 import Test.QuickCheck (quickCheckResult, Result(..))
 import Data.Char (ord, chr)
-import Data.Bits (shiftL, (.|.), (.&.))
+import Data.Bits (shiftL, (.|.), (.&.), setBit, clearBit)
 
-prop_tagClass :: Char -> Int -> Bool
-prop_tagClass rc rn = all id [ tagClass (rc `setB78` i) rn == f rn
-                               | (i, f) <- zip [0..] ctors ]
+prop_tagInfo :: Char -> Bool
+prop_tagInfo rc =
+    all id [ tagInfo rc' == (cls, consp, mnum rc')
+           | (ci, cls) <- zip [0..] classes
+           , consp <- [False, True]
+           , rc' <- [modify rc ci consp]
+           ]
     where
-      ctors = [Universal, Application, ContextSpecific, Private]
+      classes = [Universal, Application, ContextSpecific, Private]
 
-      setB78 :: Char -> Int -> Char
-      setB78 c n = chr $ ((ord c) .&. 0x3f) .|. (n `shiftL` 6)
+      mnum :: Char -> Maybe Int
+      mnum c = case (ord c) .&. 0x1f of { 0x1f -> Nothing; n -> Just n }
 
+      setClass :: Char -> Int -> Int
+      setClass c n = ((ord c) .&. 0x3f) .|. (n `shiftL` 6)
+
+      setConsp :: Int -> Bool -> Char
+      setConsp n b = chr $ (if b then setBit else clearBit) n 5
+
+      modify c ci cp = (c `setClass` ci) `setConsp` cp
+
+tests :: [([Char], Char -> Bool)]
+tests = [ ("tagInfo", prop_tagInfo) ]
+
+------------------------------------------------------------------------
 runTests :: IO Bool
 runTests = mapM verbCheck tests >>= return . allSuccess
     where
       verbCheck (name, prop) = putStr (name ++ ": ") >> quickCheckResult prop
-      tests = [("tagClass", prop_tagClass)]
 
 allSuccess :: [Result] -> Bool
 allSuccess [] = True
