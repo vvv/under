@@ -37,7 +37,7 @@ runTests = mapM verbCheck tests >>= return . allSuccess
     where
       verbCheck (name, prop) = putStr (name ++ ": ") >> quickCheckResult prop
 
-allSuccess :: [Result] -> Bool
-allSuccess [] = True
-allSuccess (Success _:rest) = allSuccess rest
-allSuccess _ = False
+      allSuccess :: [Result] -> Bool
+      allSuccess [] = True
+      allSuccess (Success _:rest) = allSuccess rest
+      allSuccess _ = False

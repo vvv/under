@@ -1,11 +1,15 @@
-{-# OPTIONS_GHC -Wall #-}
+-- {-# OPTIONS_GHC -Wall #-}
 -- | Basic Encoding Rules (BER) parsing
 --
 -- XXX TODO:
 --
+--  * test `parseTags'
+--
 --  * `takeExactly' to be defined locally
 --
 --  * configurable fillers ('\xff', etc.)
+--
+--  * move `err' and `eof' to "BBTest.Parse"?
 --
 module BBTest.BER (
                    parseTag,
@@ -16,6 +20,7 @@ module BBTest.BER (
 
                    -- testing only (?)
                    tagInfo,
+                   parseTagNum,
                   ) where
 
 import BBTest.Parse
@@ -24,8 +29,9 @@ import BBTest.Parse
 import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.Error (throwError)
 import Control.Monad.State (get, put)
-import Data.Bits ((.&.), shiftR, testBit)
+import Data.Bits
 import Data.Char (ord)
+import Data.List (foldl')
 
 -- | ASN.1 tag
 data Tag = Prim TagID BStr  -- ^ primitive tag
@@ -59,19 +65,41 @@ tagInfo c = (cls, consp, mnum)
       mnum = case n .&. 0x1f of { 0x1f -> Nothing; n' -> Just n' }
       n = ord c
 
+err msg = do (_, pos) <- get
+             throwError . Err $ msg ++ ": byte " ++ show pos
+
+eof = throwError EOF
+
+------------------------------------------------------------------------
 tag :: Parser Tag
 tag = do (s, pos) <- get
          case C.uncons s of
-           Nothing -> throwError EOF
+           Nothing -> eof
            Just ('\xff', s') -> put (s', pos+1) >> tag
            Just (c, s') -> let (cls, consp, Just num) = tagInfo c -- XXX Just
                                f = if consp then ConsU else Prim
                            in return $ f (cls, num) s'
---     where
---       err msg pos = throwError . Err $ msg ++ ": byte " ++ show pos
 
+tagNum :: [Int] -> Parser Int
+tagNum bs = do (s, pos) <- get
+               case C.uncons s of
+                 Nothing -> err "no tag number"
+                 Just (c, s') -> let b   = ord c
+                                     bs' = bs ++ [b .&. 0x7f]
+                                 in do
+                                   put (s', pos+1)
+                                   if testBit b 7
+                                     then tagNum bs'
+                                     else return (foldl' merge 0 bs')
+    where
+      merge x y = (x `shiftL` 7) .|. y
+
+------------------------------------------------------------------------
 parseTag :: StrPos -> (Either Err Tag, StrPos)
 parseTag = runParser tag
+
+parseTagNum :: StrPos -> (Either Err Int, StrPos)
+parseTagNum = runParser (tagNum [])
 
 -- | Parse tags until error or end of file
 parseTags :: StrPos -> [Either Err Tag]

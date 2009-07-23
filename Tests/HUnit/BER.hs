@@ -22,25 +22,38 @@ sr = SR "e1 70 df 46 01 04 df 47 01 1b df 28 06 a1 76 49 \
         \6e 06"
 
 dropB :: Int -> SR -> SR
-dropB n (SR s) = SR . unwords . drop n . words $ s
+dropB n (SR s) = (SR . unwords . drop n . words) s
 
-raw :: SR -> String
-raw (SR s) = map toChar (words s)
+raw :: SR -> C.ByteString
+raw (SR s) = C.pack $ map toChar (words s)
     where
       toChar = chr . read . ("0x" ++)
+
+len (SR s) = length s
 
 pk = C.pack
 ------------------------------------------------------------------------
 
-test :: Test
-test = TestLabel "BER" $ TestList [
+tg :: String -> [Test] -> Test
+tg name ts = TestLabel name (TestList ts)
+
+tst_parseTagNum = tg "parseTagNum" [
+   parseTagNum (C.empty, 100) ==> ( Left (Err "no tag number: byte 100")
+                                  , (C.empty, 100) )
+ , parseTagNum (pk "\x81\x82", 1)
+     ==> ( Left (Err "invalid tag number (no \"last octet\"): byte 1")
+         , (pk "\x81\x82", 100) )
+
+ , parseTagNum (pk "\x2a\&whatever", 5) ==> (Right 42, (pk "whatever", 6))
+ , parseTagNum (pk "\x81\x9b\x73\&_", 10) ==> (Right 19955, (pk "_", 13))
+ ]
+
+tst_parseTag = tg "parseTag" [
    parseTag (C.empty, 1) ==> (Left EOF, (C.empty, 1))
  , parseTag (pk $ replicate 4 '\xff', 10) ==> (Left EOF, (C.empty, 14))
-
- , parseTag (pk (raw sr), 10)
-                ==> ( Right $ ConsU (Private, 1) (pk . raw $ dropB 2 sr)
-                    , (C.empty, 10 + length (raw sr)) )
-
-   -- XXX
-   -- tests `parseTags'
+ , parseTag (raw sr, 10) ==> ( Right $ ConsU (Private, 1) (raw $ dropB 2 sr)
+                             , (C.empty, 10 + len sr) )
  ]
+
+test :: Test
+test = tg "BER" [ tst_parseTagNum, tst_parseTag ]
