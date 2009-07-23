@@ -1,7 +1,9 @@
--- {-# OPTIONS_GHC -Wall #-}
+---- {-# OPTIONS_GHC -Wall #-}
 -- | Basic Encoding Rules (BER) parsing
 --
 -- XXX TODO:
+--
+--  * refactor `tagID' and `tagInfo'
 --
 --  * test `parseTags'
 --
@@ -12,13 +14,14 @@
 --  * move `err' and `eof' to "BBTest.Parse"?
 --
 module BBTest.BER (
+                   Tag(..),
+                   TagClass(..),
+                   TagNum,
                    parseTag,
                    parseTags,
-                   Tag(..),
-                   TagID,
-                   TagClass(..),
 
                    -- testing only (?)
+                   parseTagID,
                    tagInfo,
                    parseTagNum,
                   ) where
@@ -34,12 +37,10 @@ import Data.Char (ord)
 import Data.List (foldl')
 
 -- | ASN.1 tag
-data Tag = Prim TagID BStr  -- ^ primitive tag
-         | Cons TagID [Tag] -- ^ constructed tag
-         | ConsU TagID BStr -- ^ constructed tag with unparsed contents
+data Tag = Prim TagClass TagNum BStr  -- ^ primitive tag
+         | Cons TagClass TagNum [Tag] -- ^ constructed tag
+         | ConsU TagClass TagNum BStr -- ^ cons. tag with unparsed contents
            deriving (Eq, Show)
-
-type TagID = (TagClass, Int)
 
 data TagClass = Universal
               | Application
@@ -47,7 +48,9 @@ data TagClass = Universal
               | Private
                 deriving (Eq, Show)
 
--- | Get tag information from the identifier octet.
+type TagNum = Int
+
+-- | Get information from the first tag identifier octet.
 --
 -- Returned value consists of:
 --
@@ -55,8 +58,8 @@ data TagClass = Universal
 --
 --   - whether tag encoding is constructed ('False' = primitive)
 --
---   - 'Just' \<tag number\> (if tag number \<= 31) or 'Nothing' (\>= 32).
-tagInfo :: Char -> (TagClass, Bool, Maybe Int)
+--   - 'Just' \<tag number\> (if tag number \<= 30) or 'Nothing' (\> 30).
+tagInfo :: Char -> (TagClass, Bool, Maybe TagNum)
 tagInfo c = (cls, consp, mnum)
     where
       cls = [Universal, Application, ContextSpecific, Private]
@@ -71,35 +74,49 @@ err msg = do (_, pos) <- get
 eof = throwError EOF
 
 ------------------------------------------------------------------------
-tag :: Parser Tag
-tag = do (s, pos) <- get
-         case C.uncons s of
-           Nothing -> eof
-           Just ('\xff', s') -> put (s', pos+1) >> tag
-           Just (c, s') -> let (cls, consp, Just num) = tagInfo c -- XXX Just
-                               f = if consp then ConsU else Prim
-                           in return $ f (cls, num) s'
+tagID :: Parser (BStr -> Tag)
+tagID = do (s, pos) <- get
+           case C.uncons s of
+             Nothing -> eof
+             Just ('\xff', s') -> put (s', pos+1) >> tagID
+             Just (c, s') -> do put (s', pos+1)
+                                let (cls, consp, mnum) = tagInfo c
+                                    f = if consp then ConsU else Prim
+                                case mnum of
+                                  Just num -> return (f cls num)
+                                  Nothing  -> -- ``high'' tag number (>= 31)
+                                          do num <- tagNum
+                                             return (f cls num)
 
-tagNum :: [Int] -> Parser Int
-tagNum bs = do (s, pos) <- get
-               case C.uncons s of
-                 Nothing -> err "no tag number"
-                 Just (c, s') -> let b   = ord c
-                                     bs' = bs ++ [b .&. 0x7f]
-                                 in do
-                                   put (s', pos+1)
-                                   if testBit b 7
-                                     then tagNum bs'
-                                     else return (foldl' merge 0 bs')
+tagNum :: Parser TagNum
+tagNum = do (s, pos) <- get
+            case accum [] s of
+              Nothing -> err "invalid tag number encoding"
+              Just bs -> do let n = length bs
+                            put (C.drop (fromIntegral n) s, pos + n)
+                            return (foldl' merge 0 bs)
     where
+      accum bs s = case C.uncons s of
+                     Nothing      -> Nothing
+                     Just (c, s') -> let b   = ord c
+                                         bs' = bs ++ [b .&. 0x7f]
+                                     in if testBit b 7
+                                        then accum bs' s'
+                                        else Just bs'
       merge x y = (x `shiftL` 7) .|. y
+
+tag :: Parser Tag
+tag = undefined
 
 ------------------------------------------------------------------------
 parseTag :: StrPos -> (Either Err Tag, StrPos)
 parseTag = runParser tag
 
-parseTagNum :: StrPos -> (Either Err Int, StrPos)
-parseTagNum = runParser (tagNum [])
+parseTagID :: StrPos -> (Either Err (BStr -> Tag), StrPos)
+parseTagID = runParser tagID
+
+parseTagNum :: StrPos -> (Either Err TagNum, StrPos)
+parseTagNum = runParser tagNum
 
 -- | Parse tags until error or end of file
 parseTags :: StrPos -> [Either Err Tag]

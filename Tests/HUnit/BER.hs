@@ -29,31 +29,52 @@ raw (SR s) = C.pack $ map toChar (words s)
     where
       toChar = chr . read . ("0x" ++)
 
-len (SR s) = length s
+-- len (SR s) = length (words s)
 
 pk = C.pack
+
+lerr :: String -> Int -> Either Err a
+lerr msg pos = Left . Err $ msg ++ ": byte " ++ show pos
 ------------------------------------------------------------------------
 
 tg :: String -> [Test] -> Test
 tg name ts = TestLabel name (TestList ts)
 
 tst_parseTagNum = tg "parseTagNum" [
-   parseTagNum (C.empty, 100) ==> ( Left (Err "no tag number: byte 100")
+   parseTagNum (C.empty, 100) ==> ( lerr "invalid tag number encoding" 100
                                   , (C.empty, 100) )
- , parseTagNum (pk "\x81\x82", 1)
-     ==> ( Left (Err "invalid tag number (no \"last octet\"): byte 1")
-         , (pk "\x81\x82", 100) )
+ , parseTagNum (pk "\x81\x82", 1) ==> ( lerr "invalid tag number encoding" 1
+                                      , (pk "\x81\x82", 1) )
 
  , parseTagNum (pk "\x2a\&whatever", 5) ==> (Right 42, (pk "whatever", 6))
  , parseTagNum (pk "\x81\x9b\x73\&_", 10) ==> (Right 19955, (pk "_", 13))
  ]
 
-tst_parseTag = tg "parseTag" [
-   parseTag (C.empty, 1) ==> (Left EOF, (C.empty, 1))
- , parseTag (pk $ replicate 4 '\xff', 10) ==> (Left EOF, (C.empty, 14))
- , parseTag (raw sr, 10) ==> ( Right $ ConsU (Private, 1) (raw $ dropB 2 sr)
-                             , (C.empty, 10 + len sr) )
+tst_parseTagID = tg "parseTagID" [
+   let (Left e, st) = parseTagID (C.empty, 1)
+   in (e, st) ==> (EOF, (C.empty, 1))
+
+ , let (Left e, st) = parseTagID (pk $ replicate 4 '\xff', 10)
+   in (e, st) ==> (EOF, (C.empty, 14))
+
+ , let (Right f, st) = parseTagID (raw sr, 100)
+   in (f (pk "contents"), st) ==> ( ConsU Private 1 (pk "contents")
+                                  , (raw $ dropB 1 sr, 101) )
  ]
 
-test :: Test
-test = tg "BER" [ tst_parseTagNum, tst_parseTag ]
+tst_parseTag = tg "parseTag" [
+--    parseTag (C.empty, 1) ==> (Left EOF, (C.empty, 1))
+--  , parseTag (pk $ replicate 4 '\xff', 10) ==> (Left EOF, (C.empty, 14))
+
+--  , parseTag (raw sr, 10) ==> ( Right $ ConsU Private 1 (raw $ dropB 2 sr)
+--                              , (C.empty, 10 + len sr) )
+   'b' ==> 'a'
+ ]
+
+tst_parseTags = tg "parseTags" [ 'b' ==> 'a' ]
+
+test = tg "BER" [ tst_parseTagNum
+                , tst_parseTagID
+                , tst_parseTag
+                , tst_parseTags
+                ]
