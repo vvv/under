@@ -7,7 +7,7 @@
 --
 --  * test `parseTags'
 --
---  * `takeExactly' to be defined locally
+--  * splitAt' to be defined locally
 --
 --  * configurable fillers ('\xff', etc.)
 --
@@ -27,7 +27,7 @@ module BBTest.BER (
                   ) where
 
 import BBTest.Parse
--- import BBTest.Util (takeExactly) -- XXX define locally?
+-- import BBTest.Util (splitAt') -- XXX define locally?
 
 import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.Error (throwError)
@@ -68,12 +68,12 @@ tagInfo c = (cls, consp, mnum)
       mnum = case n .&. 0x1f of { 0x1f -> Nothing; n' -> Just n' }
       n = ord c
 
+------------------------------------------------------------------------
 err msg = do (_, pos) <- get
              throwError . Err $ msg ++ ": byte " ++ show pos
 
 eof = throwError EOF
 
-------------------------------------------------------------------------
 tagID :: Parser (BStr -> Tag)
 tagID = do (s, pos) <- get
            case C.uncons s of
@@ -107,6 +107,13 @@ tagNum = do (s, pos) <- get
 
 tag :: Parser Tag
 tag = undefined
+-- tag = do
+--   g <- tagID
+--   n <- tagLen
+--   (s, pos) <- get
+--   case splitAt' n s of
+--     Nothing         -> err "not enough contents octets"
+--     Just (cont, s') -> put (s', pos + n) >> return (g cont)
 
 ------------------------------------------------------------------------
 parseTag :: StrPos -> (Either Err Tag, StrPos)

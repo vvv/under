@@ -1,19 +1,18 @@
 {-# OPTIONS_GHC -Wall #-}
-module Tests.QuickCheck.BER (runTests) where
+module Tests.QuickCheck.BER (tests) where
 
 import BBTest.BER (TagClass(..), tagInfo)
 
-import Test.QuickCheck (quickCheckResult, Result(..))
+import Test.QuickCheck.Property (property, Property)
 import Data.Char (ord, chr)
 import Data.Bits (shiftL, (.|.), (.&.), setBit, clearBit)
 
 prop_tagInfo :: Char -> Bool
-prop_tagInfo rc =
-    all id [ tagInfo rc' == (cls, consp, mnum rc')
-           | (ci, cls) <- zip [0..] classes
-           , consp <- [False, True]
-           , rc' <- [modify rc ci consp]
-           ]
+prop_tagInfo rc = and [ tagInfo rc' == (cls, consp, mnum rc')
+                      | (ci, cls) <- zip [0..] classes
+                      , consp <- [False, True]
+                      , rc' <- [modify rc ci consp]
+                      ]
     where
       classes = [Universal, Application, ContextSpecific, Private]
 
@@ -28,16 +27,5 @@ prop_tagInfo rc =
 
       modify c ci cp = (c `setClass` ci) `setConsp` cp
 
-tests :: [([Char], Char -> Bool)]
-tests = [ ("tagInfo", prop_tagInfo) ]
-
-------------------------------------------------------------------------
-runTests :: IO Bool
-runTests = mapM verbCheck tests >>= return . allSuccess
-    where
-      verbCheck (name, prop) = putStr (name ++ ": ") >> quickCheckResult prop
-
-      allSuccess :: [Result] -> Bool
-      allSuccess [] = True
-      allSuccess (Success _:rest) = allSuccess rest
-      allSuccess _ = False
+tests :: [(String, Property)]
+tests = [ ("tagInfo", property prop_tagInfo) ]

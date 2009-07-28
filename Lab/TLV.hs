@@ -2,7 +2,7 @@
 -- | Type-length-value decoding operations.
 module Lab.TLV (Err(..), parse, Tag(..), tag, parseTags) where
 
-import BBTest.Util (takeExactly)
+import BBTest.Util (splitAt')
 
 import Control.Monad.Error
 import Control.Monad.State
@@ -50,13 +50,13 @@ tag = do (s, pos) <- get
       err msg pos = throwError . Err $ msg ++ ": byte " ++ show pos
 
       g mktag nbytes s pos = do
-        case takeExactly nbytes s of
+        case splitAt' nbytes s of
           Nothing -> err "incomplete tag" pos
           Just (idlen, s') ->
               let (tid, slen) = (C.head idlen, C.tail idlen)
               in if C.all isDigit slen
                  then let len = read (C.unpack slen)
-                      in case takeExactly len s' of
+                      in case splitAt' len s' of
                            Nothing -> err "not enough content octets" pos
                            Just (content, rest)
                                -> do put (rest, pos + 1 + nbytes + len)
