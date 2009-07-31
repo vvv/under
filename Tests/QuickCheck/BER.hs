@@ -1,11 +1,13 @@
 {-# OPTIONS_GHC -Wall #-}
 module Tests.QuickCheck.BER (tests) where
 
-import BBTest.BER (TagClass(..), tagInfo)
+import BBTest.BER
+import BBTest.Parse (runParser)
 
 import Test.QuickCheck.Property (property, Property)
 import Data.Char (ord, chr)
 import Data.Bits (shiftL, (.|.), (.&.), setBit, clearBit)
+import Data.ByteString.Lazy.Char8 (empty)
 
 prop_tagInfo :: Char -> Bool
 prop_tagInfo rc = and [ tagInfo rc' == (cls, consp, mnum rc')
@@ -27,5 +29,11 @@ prop_tagInfo rc = and [ tagInfo rc' == (cls, consp, mnum rc')
 
       modify c ci cp = (c `setClass` ci) `setConsp` cp
 
+prop_tagLen :: Int -> Int -> Bool
+prop_tagLen n pos = runParser tagLen (enLen n, pos) ==
+                    (Right n, (empty, pos+n))
+
 tests :: [(String, Property)]
-tests = [ ("tagInfo", property prop_tagInfo) ]
+tests = [ ("tagInfo", property prop_tagInfo)
+        , ("tagLen", property prop_tagLen)
+        ]

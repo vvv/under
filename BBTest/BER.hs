@@ -21,19 +21,20 @@ module BBTest.BER (
                    parseTags,
 
                    -- testing only (?)
-                   parseTagID,
                    tagInfo,
-                   parseTagNum,
+                   tagNum,
+                   tagID,
+                   tagLen,
+                   enLen,
                   ) where
 
 import BBTest.Parse
--- import BBTest.Util (splitAt') -- XXX define locally?
 
 import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.Error (throwError)
 import Control.Monad.State (get, put)
 import Data.Bits
-import Data.Char (ord)
+import Data.Char (ord, chr)
 import Data.List (foldl')
 
 -- | ASN.1 tag
@@ -105,25 +106,36 @@ tagNum = do (s, pos) <- get
                                         else Just bs'
       merge x y = (x `shiftL` 7) .|. y
 
+tagLen :: Parser Int
+tagLen = undefined
+
 tag :: Parser Tag
 tag = undefined
--- tag = do
---   g <- tagID
---   n <- tagLen
---   (s, pos) <- get
---   case splitAt' n s of
---     Nothing         -> err "not enough contents octets"
---     Just (cont, s') -> put (s', pos + n) >> return (g cont)
+-- tag = do mkTag <- tagID
+--          n <- tagLen
+--          (s, pos) <- get
+--          case splitAt' n s of
+--            Nothing         -> err "not enough contents octets"
+--            Just (cont, s') -> put (s', pos + n) >> return (mkTag cont)
+
+------------------------------------------------------------------------
+-- | Encode tag length.
+enLen :: Int -> BStr
+enLen n | n < 0   = error "enLen: negative length makes no sense"
+        | n < 128 = C.singleton (chr n)
+        | True = let bs = bytes [] n
+                     nb = length bs
+                 in if nb > 0x7f
+                    then error ("enLen: length is too huge to be encoded\n\
+                                \  " ++ show n)
+                    else C.pack $ map chr ((nb .|. 0x80):bs)
+    where
+      bytes bs 0 = if null bs then [0] else bs
+      bytes bs x = bytes ((x .&. 0xff):bs) (x `shiftR` 8)
 
 ------------------------------------------------------------------------
 parseTag :: StrPos -> (Either Err Tag, StrPos)
 parseTag = runParser tag
-
-parseTagID :: StrPos -> (Either Err (BStr -> Tag), StrPos)
-parseTagID = runParser tagID
-
-parseTagNum :: StrPos -> (Either Err TagNum, StrPos)
-parseTagNum = runParser tagNum
 
 -- | Parse tags until error or end of file
 parseTags :: StrPos -> [Either Err Tag]

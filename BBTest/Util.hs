@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wall #-}
 module BBTest.Util (splitAt') where
 
 import qualified Data.ByteString.Lazy.Char8 as C
