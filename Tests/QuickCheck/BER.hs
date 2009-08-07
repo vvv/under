@@ -4,10 +4,10 @@ module Tests.QuickCheck.BER (tests) where
 import BBTest.BER
 import BBTest.Parse (runParser)
 
-import Test.QuickCheck.Property (property, Property)
+import Test.QuickCheck.Property (property, Property, (==>))
 import Data.Char (ord, chr)
 import Data.Bits (shiftL, (.|.), (.&.), setBit, clearBit)
-import Data.ByteString.Lazy.Char8 (empty)
+import qualified Data.ByteString.Lazy.Char8 as C
 
 prop_tagInfo :: Char -> Bool
 prop_tagInfo rc = and [ tagInfo rc' == (cls, consp, mnum rc')
@@ -29,11 +29,14 @@ prop_tagInfo rc = and [ tagInfo rc' == (cls, consp, mnum rc')
 
       modify c ci cp = (c `setClass` ci) `setConsp` cp
 
-prop_tagLen :: Int -> Int -> Bool
-prop_tagLen n pos = runParser tagLen (enLen n, pos) ==
-                    (Right n, (empty, pos+n))
+prop_tagLen :: Int -> Int -> Property
+prop_tagLen n pos =
+    (n >= 0) ==>
+    let el = enLen n
+    in runParser tagLen (el, pos) ==
+           (Right n, (C.empty, pos + fromIntegral (C.length el)))
 
 tests :: [(String, Property)]
 tests = [ ("tagInfo", property prop_tagInfo)
-        , ("tagLen", property prop_tagLen)
+        , ("tagLen",  property prop_tagLen)
         ]

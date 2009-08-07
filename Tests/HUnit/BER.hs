@@ -29,7 +29,7 @@ raw (SR s) = C.pack $ map toChar (words s)
     where
       toChar = chr . read . ("0x" ++)
 
--- len (SR s) = length (words s)
+len (SR s) = length (words s)
 
 pk = C.pack
 
@@ -73,13 +73,22 @@ tst_enLen = tg "enLen" [
  , enLen 291 ==> pk "\x82\x01\x23"
  ]
 
-tst_parseTag = tg "parseTag" [
---    parseTag (C.empty, 1) ==> (Left EOF, (C.empty, 1))
---  , parseTag (pk $ replicate 4 '\xff', 10) ==> (Left EOF, (C.empty, 14))
+tst_tagLen = tg "tagLen" [
+   runParser tagLen (C.empty, 0) ==> ( err "invalid tag length encoding" 0
+                                     , (C.empty, 0) )
+ , runParser tagLen (pk "\xff", 6) ==> ( err "invalid tag length encoding" 6
+                                       , (pk "\xff", 6) )
+ , runParser tagLen (pk "\x80", 1) ==> runParser tagLen (pk "\0", 1)
+ , runParser tagLen (raw (SR "84 07 5b cd 15 5f"), 10) ==> ( Right 123456789
+                                                           , (pk "_", 15) )
+  ]
 
---  , parseTag (raw sr, 10) ==> ( Right $ ConsU Private 1 (raw $ dropB 2 sr)
---                              , (C.empty, 10 + len sr) )
-   ni "XXX"
+tst_parseTag = tg "parseTag" [
+   parseTag (C.empty, 1) ==> (Left EOF, (C.empty, 1))
+ , parseTag (pk $ replicate 4 '\xff', 10) ==> (Left EOF, (C.empty, 14))
+
+ , parseTag (raw sr, 10) ==> ( Right $ ConsU Private 1 (raw $ dropB 2 sr)
+                             , (C.empty, 10 + len sr) )
  ]
 
 tst_parseTags = tg "parseTags" [ ni "XXX" ]
@@ -87,6 +96,7 @@ tst_parseTags = tg "parseTags" [ ni "XXX" ]
 test = tg "BER" [ tst_tagNum
                 , tst_tagID
                 , tst_enLen
---                 , tst_parseTag
---                 , tst_parseTags
+                , tst_tagLen
+                , tst_parseTag
+                , tst_parseTags
                 ]

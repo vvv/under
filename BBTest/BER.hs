@@ -1,5 +1,8 @@
 ---- {-# OPTIONS_GHC -Wall #-}
--- | Basic Encoding Rules (BER) parsing
+-- | Basic Encoding Rules (BER) decoding.
+--
+-- BER are specified by `X.690' at
+-- <http://www.itu.int/ITU-T/studygroups/com17/languages/>.
 --
 -- XXX TODO:
 --
@@ -29,6 +32,7 @@ module BBTest.BER (
                   ) where
 
 import BBTest.Parse
+import BBTest.Util (splitAt')
 
 import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.Error (throwError)
@@ -65,7 +69,7 @@ tagInfo c = (cls, consp, mnum)
     where
       cls = [Universal, Application, ContextSpecific, Private]
             !! ((n .&. 0xc0) `shiftR` 6)
-      consp = n `testBit` 5
+      consp = testBit n 5
       mnum = case n .&. 0x1f of { 0x1f -> Nothing; n' -> Just n' }
       n = ord c
 
@@ -75,11 +79,13 @@ err msg = do (_, pos) <- get
 
 eof = throwError EOF
 
+-- | Identifier octets parser.
 tagID :: Parser (BStr -> Tag)
 tagID = do (s, pos) <- get
            case C.uncons s of
              Nothing -> eof
-             Just ('\xff', s') -> put (s', pos+1) >> tagID
+             Just ('\xff', s') -> -- skip filler
+                 put (s', pos+1) >> tagID
              Just (c, s') -> do put (s', pos+1)
                                 let (cls, consp, mnum) = tagInfo c
                                     f = if consp then ConsU else Prim
@@ -106,30 +112,47 @@ tagNum = do (s, pos) <- get
                                         else Just bs'
       merge x y = (x `shiftL` 7) .|. y
 
+-- | Length octets parser.
 tagLen :: Parser Int
-tagLen = undefined
+tagLen = do
+  (s, pos) <- get
+  case C.uncons s of
+    Nothing -> e
+    Just (c, s') -> do let n = ord c
+                       if testBit n 7
+                         then -- long form
+                             case splitAt' (n .&. 0x7f) s' of
+                               Nothing -> e
+                               Just (bs, rest) -> do
+                                 put (rest, pos+1 + fromIntegral (C.length bs))
+                                 return (C.foldl' merge 0 bs)
+                         else -- short form
+                             put (s', pos+1) >> return n
+    where
+      e = err "invalid tag length encoding"
+      merge n c = (n `shiftL` 8) .|. ord c
 
 tag :: Parser Tag
-tag = undefined
--- tag = do mkTag <- tagID
---          n <- tagLen
---          (s, pos) <- get
---          case splitAt' n s of
---            Nothing         -> err "not enough contents octets"
---            Just (cont, s') -> put (s', pos + n) >> return (mkTag cont)
+tag = do mkTag <- tagID
+         n <- tagLen
+         (s, pos) <- get
+         case splitAt' n s of
+           Nothing -> err "not enough contents octets"
+           Just (cont, s') -> put (s', pos + n) >> return (mkTag cont)
 
 ------------------------------------------------------------------------
 -- | Encode tag length.
 enLen :: Int -> BStr
-enLen n | n < 0   = error "enLen: negative length makes no sense"
+enLen n | n < 0   = e
         | n < 128 = C.singleton (chr n)
         | True = let bs = bytes [] n
                      nb = length bs
                  in if nb > 0x7f
-                    then error ("enLen: length is too huge to be encoded\n\
-                                \  " ++ show n)
+                    then e
                     else C.pack $ map chr ((nb .|. 0x80):bs)
     where
+      e = error "tag length cannot be encoded"
+
       bytes bs 0 = if null bs then [0] else bs
       bytes bs x = bytes ((x .&. 0xff):bs) (x `shiftR` 8)
 
