@@ -8,8 +8,6 @@
 --
 --  * refactor `tagID' and `tagInfo'
 --
---  * test `parseTags'
---
 --  * splitAt' to be defined locally
 --
 --  * configurable fillers ('\xff', etc.)
@@ -57,7 +55,7 @@ type TagNum = Int
 
 -- | Get information from the first tag identifier octet.
 --
--- Returned value consists of:
+-- Returned value is made of:
 --
 --   - tag class,
 --

@@ -86,12 +86,21 @@ tst_tagLen = tg "tagLen" [
 tst_parseTag = tg "parseTag" [
    parseTag (C.empty, 1) ==> (Left EOF, (C.empty, 1))
  , parseTag (pk $ replicate 4 '\xff', 10) ==> (Left EOF, (C.empty, 14))
-
  , parseTag (raw sr, 10) ==> ( Right $ ConsU Private 1 (raw $ dropB 2 sr)
                              , (C.empty, 10 + len sr) )
  ]
 
-tst_parseTags = tg "parseTags" [ ni "XXX" ]
+tst_parseTags = tg "parseTags" [
+   parseTags (C.empty, 1) ==> []
+ , parseTags (pk $ replicate 9 '\xff', 1) ==> []
+ , parseTags (raw sr, 1) ==> [Right $ ConsU Private 1 (raw $ dropB 2 sr)]
+ , parseTags (raw $ SR "d3 03 09 07 10 f4 06 df 4a 03 10 13 59", 34) ==>
+                 [ Right $ Prim Private 19 (pk "\x09\x07\x10")
+                 , Right $ ConsU Private 20 $ raw $ SR "df 4a 03 10 13 59" ]
+ , parseTags (raw $ SR "df 24 01 60 df 42 01", 136) ==>
+             [ Right $ Prim Private 36 (pk "`")
+             , err "not enough contents octets" 143 ]
+ ]
 
 test = tg "BER" [ tst_tagNum
                 , tst_tagID
