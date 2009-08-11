@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
-module BBTest.Parse (Err(..), Parser, runParser, BStr, StrPos) where
+module BBTest.Parse (BStr, StrPos, Err(..), Parser, runParser) where
 
 import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.Error
@@ -7,7 +7,7 @@ import Control.Monad.State (State, runState)
 
 type BStr = C.ByteString
 
--- | String to be parsed + file position (byte address, 1-based)
+-- | String to be parsed + file position (1-based byte address)
 type StrPos = (BStr, Int)
 
 data Err = Err String -- ^ parsing error

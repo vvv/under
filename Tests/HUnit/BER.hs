@@ -29,6 +29,8 @@ raw (SR s) = C.pack $ map toChar (words s)
     where
       toChar = chr . read . ("0x" ++)
 
+bs = raw . SR
+
 len (SR s) = length (words s)
 
 pk = C.pack
@@ -37,10 +39,20 @@ err :: String -> Int -> Either Err a
 err msg pos = Left . Err $ msg ++ ": byte " ++ show pos
 
 ni s = "not implemented " ++ s ==> ""
-------------------------------------------------------------------------
 
 tg :: String -> [Test] -> Test
 tg name ts = TestLabel name (TestList ts)
+------------------------------------------------------------------------
+
+tst_splitAt' = tg "splitAt'" [
+   splitAt' 0 C.empty         ==> Just (C.empty, C.empty)
+ , splitAt' (-1) (C.pack "_") ==> Nothing
+ , splitAt' 1 C.empty         ==> Nothing
+ , splitAt' 2 (C.pack "abc")  ==> Just (C.pack "ab", C.pack "c")
+ , splitAt' 3 (C.pack "xyz")  ==> Just (C.pack "xyz", C.empty)
+ , splitAt' 4 (C.pack "123")  ==> Nothing
+ , splitAt' 0 (C.pack "x")    ==> Just (C.empty, C.pack "x")
+ ]
 
 tst_tagNum = tg "tagNum" [
    runParser tagNum (C.empty, 100) ==>
@@ -79,8 +91,8 @@ tst_tagLen = tg "tagLen" [
  , runParser tagLen (pk "\xff", 6) ==> ( err "invalid tag length encoding" 6
                                        , (pk "\xff", 6) )
  , runParser tagLen (pk "\x80", 1) ==> runParser tagLen (pk "\0", 1)
- , runParser tagLen (raw (SR "84 07 5b cd 15 5f"), 10) ==> ( Right 123456789
-                                                           , (pk "_", 15) )
+ , runParser tagLen (bs "84 07 5b cd 15 5f", 10) ==> ( Right 123456789
+                                                     , (pk "_", 15) )
   ]
 
 tst_parseTag = tg "parseTag" [
@@ -94,18 +106,32 @@ tst_parseTags = tg "parseTags" [
    parseTags (C.empty, 1) ==> []
  , parseTags (pk $ replicate 9 '\xff', 1) ==> []
  , parseTags (raw sr, 1) ==> [Right $ ConsU Private 1 (raw $ dropB 2 sr)]
- , parseTags (raw $ SR "d3 03 09 07 10 f4 06 df 4a 03 10 13 59", 34) ==>
+ , parseTags (bs "d3 03 09 07 10 f4 06 df 4a 03 10 13 59", 34) ==>
                  [ Right $ Prim Private 19 (pk "\x09\x07\x10")
-                 , Right $ ConsU Private 20 $ raw $ SR "df 4a 03 10 13 59" ]
- , parseTags (raw $ SR "df 24 01 60 df 42 01", 136) ==>
+                 , Right $ ConsU Private 20 $ bs "df 4a 03 10 13 59" ]
+ , parseTags (bs "df 24 01 60 df 42 01", 136) ==>
              [ Right $ Prim Private 36 (pk "`")
              , err "not enough contents octets" 143 ]
  ]
 
-test = tg "BER" [ tst_tagNum
+tst_toSexp = tg "toSexp" [
+   toSexp (Prim ContextSpecific 4 $ pk "abc") ==> pk "(c4 \"61 62 63\")"
+ , toSexp (Cons Universal 16 [ Prim Private 9 $ bs "91 83 50 10 22 90 45"
+                             , Prim Private 39 $ bs "81 08 05 21 02 59 f4" ])
+              ==> pk "(u16 (p9 \"91 83 50 10 22 90 45\")\
+                         \ (p39 \"81 08 05 21 02 59 f4\"))"
+ , toSexp (ConsU Application 20 $ bs "df 4a 03 10 13 59") ==>
+          pk "(a20 (p74 \"10 13 59\"))"
+ , toSexp (ConsU Application 20 $ bs "df 4a 03 10 13 59") ==>
+          toSexp (Cons Application 20 [Prim Private 74 $ bs "10 13 59"])
+ ]
+
+test = tg "BER" [ tst_splitAt'
+                , tst_tagNum
                 , tst_tagID
                 , tst_enLen
                 , tst_tagLen
                 , tst_parseTag
                 , tst_parseTags
+                , tst_toSexp
                 ]

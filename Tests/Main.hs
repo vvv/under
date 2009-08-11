@@ -2,7 +2,6 @@
 module Main where
 
 import qualified Tests.QuickCheck.BER as QB
-import qualified Tests.HUnit.Util as HU
 import qualified Tests.HUnit.BER as HB
 import qualified Tests.HUnit.Lab as L
 
@@ -14,7 +13,7 @@ import System.Exit (exitSuccess, exitFailure)
 main :: IO ()
 main = do
   qcRes <- runQC QB.tests
-  huRes <- runHU [HU.test, L.test, HB.test]
+  huRes <- runHU [L.test, HB.test]
   if qcRes && huRes
     then exitSuccess else exitFailure
 

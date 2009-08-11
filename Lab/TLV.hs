@@ -2,7 +2,7 @@
 -- | Type-length-value decoding operations.
 module Lab.TLV (Err(..), parse, Tag(..), tag, parseTags) where
 
-import BBTest.Util (splitAt')
+import BBTest.BER (splitAt')
 
 import Control.Monad.Error
 import Control.Monad.State

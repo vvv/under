@@ -36,6 +36,9 @@ prop_tagLen n pos =
     in runParser tagLen (el, pos) ==
            (Right n, (C.empty, pos + fromIntegral (C.length el)))
 
+-- prop_toSexp :: Tag -> Bool
+-- prop_toSexp t = fromSexp (toSexp t) == t
+
 tests :: [(String, Property)]
 tests = [ ("tagInfo", property prop_tagInfo)
         , ("tagLen",  property prop_tagLen)
