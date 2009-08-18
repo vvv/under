@@ -9,12 +9,12 @@ import Data.Char (ord, chr)
 import Data.Bits (shiftL, (.|.), (.&.), setBit, clearBit)
 import qualified Data.ByteString.Lazy.Char8 as C
 
-prop_tagInfo :: Char -> Bool
-prop_tagInfo rc = and [ tagInfo rc' == (cls, consp, mnum rc')
-                      | (ci, cls) <- zip [0..] classes
-                      , consp <- [False, True]
-                      , rc' <- [modify rc ci consp]
-                      ]
+prop_tagID1 :: Char -> Bool
+prop_tagID1 rc = and [ tagID1 rc' == (consp, cls, mnum rc')
+                     | (ci, cls) <- zip [0..] classes
+                     , consp <- [False, True]
+                     , rc' <- [modify rc ci consp]
+                     ]
     where
       classes = [Universal, Application, ContextSpecific, Private]
 
@@ -40,6 +40,6 @@ prop_tagLen n pos =
 -- prop_toSexp t = fromSexp (toSexp t) == t
 
 tests :: [(String, Property)]
-tests = [ ("tagInfo", property prop_tagInfo)
-        , ("tagLen",  property prop_tagLen)
+tests = [ ("tagID1", property prop_tagID1)
+        , ("tagLen", property prop_tagLen)
         ]
