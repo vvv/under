@@ -106,7 +106,7 @@ hexDump = unwords . map (f . (`quotRem` 16) . ord)
 tagID :: Parser (Bool, TagClass, TagNum)
 tagID = do (s, pos) <- get
            case C.uncons s of
-             Nothing -> err "no identifier octets to parse"
+             Nothing -> err "tagID: no identifier octets to parse"
              Just (c, s') -> do put (s', pos+1)
                                 let (consp, cls, m) = tagID1 c
                                 num <- (maybe tagNum return) m
@@ -134,7 +134,7 @@ tagID1 c = (consp, cls, mnum)
 tagNum :: Parser TagNum
 tagNum = do (s, pos) <- get
             case acc [] s of
-              Nothing -> err "invalid tag number encoding"
+              Nothing -> err "tagNum: invalid tag number encoding"
               Just bs -> do let n = length bs
                             put (C.drop (fromIntegral n) s, pos+n)
                             return (foldl' merge 0 bs)
@@ -165,7 +165,7 @@ tagLen = do
                          else -- short form
                              put (s', pos+1) >> return n
     where
-      e = err "invalid tag length encoding"
+      e = err "tagLen: too few length octets"
       merge n c = (n `shiftL` 8) .|. ord c
 
 -- | Skip filling characters.
@@ -183,7 +183,7 @@ tag = do skip "\xff"
          len               <- tagLen
          (s, pos)          <- get
          case splitAt' len s of
-           Nothing            -> err "not enough contents octets"
+           Nothing            -> err "tag: not enough contents octets"
            Just (content, s') -> do put (s', pos+len)
                                     return $ if consp
                                              then ConsU cls num (content, pos)
@@ -229,9 +229,9 @@ enLen n | n < 0   = e
                     then e
                     else C.pack $ map chr ((nb .|. 0x80):bs)
     where
-      e = error "tag length cannot be encoded"
+      e = error ("enLen: tag length cannot be encoded: " ++ show n)
 
-      bytes bs 0 = if null bs then [0] else bs
+      bytes bs 0 = bs
       bytes bs x = bytes ((x .&. 0xff):bs) (x `shiftR` 8)
 
 -- | Convert tag to a \"decomposed\" S-expression.
