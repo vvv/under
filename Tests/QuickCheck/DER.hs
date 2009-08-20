@@ -1,8 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
-module Tests.QuickCheck.BER (tests) where
+module Tests.QuickCheck.DER (tests) where
 
-import BBTest.BER
-import BBTest.Parse (runParser)
+import Codec.Binary.DER
 
 import Test.QuickCheck.Property (property, Property, (==>))
 import Data.Char (ord, chr)

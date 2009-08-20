@@ -1,9 +1,8 @@
 {-# OPTIONS_GHC -fwarn-unused-imports #-}
-module Tests.HUnit.BER (test) where
+module Tests.HUnit.DER (test) where
 
-import BBTest.BER
+import Codec.Binary.DER
 
-import BBTest.Parse (Err(..), runParser)
 import Tests.Util ((==>))
 
 import Test.HUnit (Test(..))
@@ -151,7 +150,7 @@ tst_toSexp = tg "toSexp" [
                   in (ls, concatMap C.unpack rs)
 
 
-test = tg "BER" [ tst_splitAt'
+test = tg "DER" [ tst_splitAt'
                 , tst_tagNum
                 , tst_tagID
                 , tst_enLen

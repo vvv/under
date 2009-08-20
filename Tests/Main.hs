@@ -1,9 +1,8 @@
 {-# OPTIONS_GHC -Wall #-}
 module Main where
 
-import qualified Tests.QuickCheck.BER as QB
-import qualified Tests.HUnit.BER as HB
-import qualified Tests.HUnit.Lab as L
+import qualified Tests.QuickCheck.DER as Q
+import qualified Tests.HUnit.DER as H
 
 import Test.QuickCheck (quickCheckResult, Property)
 import Test.QuickCheck.Test (isSuccess)
@@ -12,8 +11,8 @@ import System.Exit (exitSuccess, exitFailure)
 
 main :: IO ()
 main = do
-  qcRes <- runQC QB.tests
-  huRes <- runHU [L.test, HB.test]
+  qcRes <- runQC Q.tests
+  huRes <- runHU [H.test]
   if qcRes && huRes
     then exitSuccess else exitFailure
 

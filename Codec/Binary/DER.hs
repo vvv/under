@@ -1,29 +1,32 @@
----- {-# OPTIONS_GHC -Wall #-}
--- | Basic Encoding Rules (BER) decoding.
+{-# LANGUAGE CPP #-}
+-- {-# OPTIONS_GHC -Wall #-}
+-- | Distinguished Encoding Rules (DER) decoding/encoding.
 --
--- BER are specified by `X.690' ASN.1 recommendation (see
+-- DER's are specified by `X.690' ASN.1 recommendation (see
 -- <http://www.itu.int/ITU-T/studygroups/com17/languages/>).
 --
 -- XXX TODO:
 --
---  * hide testing-only exports by preprocessing directive
+--   - 'toSexp' can be implemented with 'Writer' monad
 --
---  * (?) move `err' and `eof' to "BBTest.Parse"
---
-module BBTest.BER (
+module Codec.Binary.DER (
  -- * Types
    Tag(..)
  , TagClass(..)
  , TagNum
- -- * High-level parsers
+ -- * Parsing
  , parseTag
  , parseTags
  , deepen
- -- * Encoders/decoders
+ -- * S-expressions
  , toSexp
  , toSexp'
 
+#ifdef TESTING
  -- * Testing-only exports
+ -- ** Parsing API
+ , runParser
+ , Err(..)
  -- ** Parser implementations
  , tagID
  , tagID1
@@ -33,13 +36,15 @@ module BBTest.BER (
  , enLen
  -- ** Utility functions
  , splitAt'
+#endif
  ) where
 
-import BBTest.Parse
-
 import qualified Data.ByteString.Lazy.Char8 as C
-import Control.Monad.Error (throwError)
-import Control.Monad.State (get, put)
+import Data.ByteString.Lazy (ByteString)
+
+import Control.Monad.Error (Error(..), ErrorT, runErrorT, throwError)
+import Control.Monad.State (State, runState, get, put)
+
 import Data.Bits
 import Data.Char (ord, chr, intToDigit)
 import Data.List (foldl')
@@ -49,10 +54,14 @@ import Data.Either (partitionEithers)
 ------------------------------------------------------------------------
 -- Types
 
+-- | String to be parsed + file position (1-based byte address)
+type StrPos = (ByteString, Int)
+
 -- | ASN.1 tag
-data Tag = Prim TagClass TagNum BStr    -- ^ primitive tag
+data Tag = Prim TagClass TagNum ByteString -- ^ primitive tag
          | Cons TagClass TagNum [Tag]   -- ^ constructed tag
-         | ConsU TagClass TagNum StrPos -- ^ cons. tag with unparsed contents
+         | ConsU TagClass TagNum StrPos -- ^ constructed tag with unparsed
+                                        --   contents
            deriving (Eq, Show)
 
 data TagClass = Universal
@@ -64,35 +73,22 @@ data TagClass = Universal
 type TagNum = Int
 
 ------------------------------------------------------------------------
--- Utility functions
+-- Parsing API
 
-err msg = do (_, pos) <- get
-             throwError . Err $ msg ++ ": byte " ++ show pos
+type Parser a = ErrorT Err (State StrPos) a
 
-eof = throwError EOF
+data Err = Err String -- ^ parsing error
+         | EOF        -- ^ end of file
+         deriving (Eq, Show)
 
-infixr 5 <:>
-(<:>) :: Char -> C.ByteString -> C.ByteString
-(<:>) = C.cons
+instance Error Err where
+    strMsg = Err
 
--- | Similar to 'Data.List.splitAt' but returns 'Nothing' if string
--- | has fewer characters than requested.
-splitAt' :: Int -> C.ByteString -> Maybe (C.ByteString, C.ByteString)
-splitAt' = grow C.empty
-    where
-      grow acc n s | n == 0 = Just (C.reverse acc, s)
-                   | n < 0  = Nothing
-                   | True   = case C.uncons s of
-                                Just (c, s') -> grow (c<:>acc) (n-1) s'
-                                _            -> Nothing
-
-hexDump :: String -> String
-hexDump = unwords . map (f . (`quotRem` 16) . ord)
-    where
-      f (q, r) = (intToDigit q):[intToDigit r]
+runParser :: Parser a -> StrPos -> (Either Err a, StrPos)
+runParser p sp = runState (runErrorT p) sp
 
 ------------------------------------------------------------------------
--- Parser implementations
+-- Concrete parsers
 
 -- | Identifier octets parser.
 --
@@ -177,6 +173,7 @@ skip fillers = do (s, pos) <- get
                                     then put (s', pos+1) >> skip fillers
                                     else return ()
 
+-- | ASN.1 value parser.
 tag :: Parser Tag
 tag = do skip "\xff"
          (consp, cls, num) <- tagID
@@ -190,7 +187,7 @@ tag = do skip "\xff"
                                              else Prim  cls num content
 
 ------------------------------------------------------------------------
--- High-level parsers
+-- Exported parsers
 
 parseTag :: StrPos -> (Either Err Tag, StrPos)
 parseTag = runParser tag
@@ -220,7 +217,7 @@ deepen t = Right t
 -- Encoders/decoders
 
 -- | Encode tag length.
-enLen :: Int -> BStr
+enLen :: Int -> ByteString
 enLen n | n < 0   = e
         | n < 128 = C.singleton (chr n)
         | True = let bs = bytes [] n
@@ -234,11 +231,14 @@ enLen n | n < 0   = e
       bytes bs 0 = bs
       bytes bs x = bytes ((x .&. 0xff):bs) (x `shiftR` 8)
 
+------------------------------------------------------------------------
+-- S-expressions
+
 -- | Convert tag to a \"decomposed\" S-expression.
 --
 -- @Right@ elements of the resulting list can be written to stdout;
 -- @Left@ is an error notification.
-toSexp :: Tag -> [Either Err BStr]
+toSexp :: Tag -> [Either Err ByteString]
 toSexp t = case t of
              Prim cls num s -> header cls num
                                ++ [ rpk $ ' ':'"':hexDump (C.unpack s) ]
@@ -262,9 +262,33 @@ toSexp t = case t of
       rch = Right . C.singleton
       rpk = Right . C.pack
 
--- | A strict version of 'toSexp'.
-toSexp' :: Tag -> Either Err BStr
+-- | A strict variant of 'toSexp'.
+toSexp' :: Tag -> Either Err ByteString
 toSexp' t = let (ls, rs) = partitionEithers (toSexp t)
             in if null ls
                then Right (C.concat rs)
                else Left (head ls)
+
+------------------------------------------------------------------------
+-- Utility functions
+
+err msg = do (_, pos) <- get
+             throwError . Err $ msg ++ ": byte " ++ show pos
+
+eof = throwError EOF
+
+-- | Similar to 'Data.List.splitAt' but returns 'Nothing' if string
+-- | has fewer characters than requested.
+splitAt' :: Int -> C.ByteString -> Maybe (C.ByteString, C.ByteString)
+splitAt' = grow C.empty
+    where
+      grow acc n s | n == 0 = Just (C.reverse acc, s)
+                   | n < 0  = Nothing
+                   | True   = case C.uncons s of
+                                Just (c, s') -> grow (C.cons c acc) (n-1) s'
+                                _            -> Nothing
+
+hexDump :: String -> String
+hexDump = unwords . map (f . (`quotRem` 16) . ord)
+    where
+      f (q, r) = (intToDigit q):[intToDigit r]

@@ -1,17 +1,18 @@
-name:           BBTest
+name:           under
 version:        0.0.1
 license:        BSD3
 copyright:      (c) 2009  Valery V. Vorotyntsev
 author:         Valery V. Vorotyntsev (vvv)
 maintainer:     valery.vv@gmail.com
 stability:      experimental
-synopsis:       Black-box testing of UMC preprocessing system
-description:    XXX
-category:       Testing
+synopsis:       DER data manipulation (DER = Distinguished Encoding Rules)
+description:    Decoding/encoding of DER data streams. Conversion of
+                ASN.1 values (tags) to/from S-expressions (sexps).
+category:       Codec
 cabal-version:  >= 1.2
 build-type:     Simple
 tested-with:    GHC == 6.10.4
 
 library
   build-depends:    base >= 4.1.0, mtl >= 1.1.0, bytestring >= 0.9.1
-  exposed-modules:  BBTest.BER
+  exposed-modules:  Codec.Binary.DER
