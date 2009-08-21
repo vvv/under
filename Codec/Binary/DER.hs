@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
--- {-# OPTIONS_GHC -Wall #-}
+---- {-# OPTIONS_GHC -Wall #-}
 -- | Distinguished Encoding Rules (DER) decoding/encoding.
 --
 -- DER's are specified by `X.690' ASN.1 recommendation (see
@@ -9,41 +9,41 @@
 --
 --   - 'toSexp' can be implemented with 'Writer' monad
 --
-module Codec.Binary.DER (
- -- * Types
-   Tag(..)
- , TagClass(..)
- , TagNum
- -- * Parsing
- , parseTag
- , parseTags
- , deepen
- -- * S-expressions
- , toSexp
- , toSexp'
+module Codec.Binary.DER
+    ( -- * Types
+      Tag(..)
+    , TagClass(..)
+    , TagNum
+    -- * Parsing
+    , Err(..)
+    , parseTag
+    , parseTags
+    , deepen
+    -- * S-expressions
+    , toSexp
+    , toSexp'
 
 #ifdef TESTING
- -- * Testing-only exports
- -- ** Parsing API
- , runParser
- , Err(..)
- -- ** Parser implementations
- , tagID
- , tagID1
- , tagNum
- , tagLen
- -- ** Encoders/decoders
- , enLen
- -- ** Utility functions
- , splitAt'
+    -- * Testing-only exports
+    -- ** Parsing API
+    , runParser
+    -- ** Parser implementations
+    , tagID
+    , tagID1
+    , tagNum
+    , tagLen
+    -- ** Encoders/decoders
+    , enLen
+    -- ** Utility functions
+    , splitAt'
 #endif
- ) where
+    ) where
 
 import qualified Data.ByteString.Lazy.Char8 as C
 import Data.ByteString.Lazy (ByteString)
 
-import Control.Monad.Error (Error(..), ErrorT, runErrorT, throwError)
 import Control.Monad.State (State, runState, get, put)
+import Control.Monad.Error (Error(..), ErrorT, runErrorT, throwError)
 
 import Data.Bits
 import Data.Char (ord, chr, intToDigit)
@@ -54,12 +54,12 @@ import Data.Either (partitionEithers)
 ------------------------------------------------------------------------
 -- Types
 
--- | String to be parsed + file position (1-based byte address)
+-- | String to parse + file position (1-based byte address)
 type StrPos = (ByteString, Int)
 
 -- | ASN.1 tag
 data Tag = Prim TagClass TagNum ByteString -- ^ primitive tag
-         | Cons TagClass TagNum [Tag]   -- ^ constructed tag
+         | Cons TagClass TagNum [Tag]      -- ^ constructed tag
          | ConsU TagClass TagNum StrPos -- ^ constructed tag with unparsed
                                         --   contents
            deriving (Eq, Show)
@@ -85,7 +85,7 @@ instance Error Err where
     strMsg = Err
 
 runParser :: Parser a -> StrPos -> (Either Err a, StrPos)
-runParser p sp = runState (runErrorT p) sp
+runParser m str = runState (runErrorT m) str
 
 ------------------------------------------------------------------------
 -- Concrete parsers

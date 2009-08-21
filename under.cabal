@@ -16,3 +16,6 @@ tested-with:    GHC == 6.10.4
 library
   build-depends:    base >= 4.1.0, mtl >= 1.1.0, bytestring >= 0.9.1
   exposed-modules:  Codec.Binary.DER
+
+executable under
+  main-is: Main.hs
