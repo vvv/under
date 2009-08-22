@@ -6,8 +6,8 @@ author:         Valery V. Vorotyntsev (vvv)
 maintainer:     valery.vv@gmail.com
 stability:      experimental
 synopsis:       DER data manipulation (DER = Distinguished Encoding Rules)
-description:    Decoding/encoding of DER data streams. Conversion of
-                ASN.1 values (tags) to/from S-expressions (sexps).
+description:    Decode/encode DER data streams. Convert ASN.1 values
+                (tags) to S-expressions (sexps) and vice versa.
 category:       Codec
 cabal-version:  >= 1.2
 build-type:     Simple

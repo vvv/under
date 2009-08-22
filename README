@@ -1,0 +1,33 @@
+* Overview
+
+  Distinguished Encoding Rules (DER) is a binary data format widely
+  used for digital certificates (such as X.509) and telecom billing
+  records.
+
+  `Codec.Binary.DER' Haskell library contains functions for decoding
+  {XXX_TODO and encoding} DER data.  Decoded values - ASN.1 tags - can
+  be written to stdout as S-expressions {XXX_TODO and read back to
+  Haskell representation}.
+
+  `under' executable can be used to:
+    - decode binary files to plain text S-expressions
+    {XXX_TODO
+    - pretty-print decoded data
+    - obtain domain-specific output, specified by resource files
+    - filter DER records (under SRC | grep CRITERIA | under -e > DEST)
+    - create custom binary files, etc.}
+
+
+* See also
+
+** ASN.1 encoding rules (BER, CER, and DER) are specified by
+   `ITU-T Recommendation X.690'
+
+   http://www.itu.int/ITU-T/studygroups/com17/languages/
+
+** asn1c -- ASN.1 compiler by Lev Walkin
+
+   http://lionet.info/asn1c/
+
+   `asn1c' comes with BER decoder and encoder. BER data is decoded to
+   XML format.
