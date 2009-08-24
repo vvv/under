@@ -44,16 +44,6 @@ tg :: String -> [Test] -> Test
 tg name ts = TestLabel name (TestList ts)
 ------------------------------------------------------------------------
 
-tst_splitAt' = tg "splitAt'" [
-   splitAt' 0 C.empty         ==> Just (C.empty, C.empty)
- , splitAt' (-1) (C.pack "_") ==> Nothing
- , splitAt' 1 C.empty         ==> Nothing
- , splitAt' 2 (C.pack "abc")  ==> Just (C.pack "ab", C.pack "c")
- , splitAt' 3 (C.pack "xyz")  ==> Just (C.pack "xyz", C.empty)
- , splitAt' 4 (C.pack "123")  ==> Nothing
- , splitAt' 0 (C.pack "x")    ==> Just (C.empty, C.pack "x")
- ]
-
 tst_tagNum = tg "tagNum" [
    runParser tagNum (C.empty, 100) ==>
                  ( err "tagNum: invalid tag number encoding" 100
@@ -150,8 +140,7 @@ tst_toSexp = tg "toSexp" [
                   in (ls, concatMap C.unpack rs)
 
 
-test = tg "DER" [ tst_splitAt'
-                , tst_tagNum
+test = tg "DER" [ tst_tagNum
                 , tst_tagID
                 , tst_enLen
                 , tst_tagLen

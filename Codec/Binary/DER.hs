@@ -34,8 +34,6 @@ module Codec.Binary.DER
     , tagLen
     -- ** Encoders/decoders
     , enLen
-    -- ** Utility functions
-    , splitAt'
 #endif
     ) where
 
@@ -153,11 +151,13 @@ tagLen = do
     Just (c, s') -> do let n = ord c
                        if testBit n 7
                          then -- long form
-                             case splitAt' (n .&. 0x7f) s' of
-                               Nothing         -> e
-                               Just (bs, rest) -> do
-                                 put (rest, pos+1 + fromIntegral (C.length bs))
-                                 return (C.foldl' merge 0 bs)
+                             let nb = fromIntegral (n .&. 0x7f)
+                                 (bs, rest) = C.splitAt nb s'
+                             in if C.length bs /= nb
+                                then e
+                                else do
+                                  put (rest, pos+1 + fromIntegral nb)
+                                  return (C.foldl' merge 0 bs)
                          else -- short form
                              put (s', pos+1) >> return n
     where
@@ -179,12 +179,14 @@ tag = do skip "\xff"
          (consp, cls, num) <- tagID
          len               <- tagLen
          (s, pos)          <- get
-         case splitAt' len s of
-           Nothing            -> err "tag: not enough contents octets"
-           Just (content, s') -> do put (s', pos+len)
-                                    return $ if consp
-                                             then ConsU cls num (content, pos)
-                                             else Prim  cls num content
+         let nb = fromIntegral len
+             (content, s') = C.splitAt nb s
+         if C.length content /= nb
+           then err "tag: not enough contents octets"
+           else do put (s', pos+len)
+                   return $ if consp
+                            then ConsU cls num (content, pos)
+                            else Prim  cls num content
 
 ------------------------------------------------------------------------
 -- Exported parsers
@@ -234,6 +236,7 @@ enLen n | n < 0   = e
 ------------------------------------------------------------------------
 -- S-expressions
 
+
 -- | Convert tag to a \"decomposed\" S-expression.
 --
 -- @Right@ elements of the resulting list can be written to stdout;
@@ -249,7 +252,7 @@ toSexp t = case t of
                     Left e   -> [Left e]
                     Right t' -> toSexp t'
     where
-      header cls num = [ rpk $ '(':(char cls):(show num) ]
+      header cls num = [ rpk $ '(':char cls:show num ]
       footer = [ rch ')' ]
 
       repr = concatMap $ ((:) (rch ' ')) . toSexp
@@ -276,17 +279,6 @@ err msg = do (_, pos) <- get
              throwError . Err $ msg ++ ": byte " ++ show pos
 
 eof = throwError EOF
-
--- | Similar to 'Data.List.splitAt' but returns 'Nothing' if string
--- | has fewer characters than requested.
-splitAt' :: Int -> C.ByteString -> Maybe (C.ByteString, C.ByteString)
-splitAt' = grow C.empty
-    where
-      grow acc n s | n == 0 = Just (C.reverse acc, s)
-                   | n < 0  = Nothing
-                   | True   = case C.uncons s of
-                                Just (c, s') -> grow (C.cons c acc) (n-1) s'
-                                _            -> Nothing
 
 hexDump :: String -> String
 hexDump = unwords . map (f . (`quotRem` 16) . ord)
