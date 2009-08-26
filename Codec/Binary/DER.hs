@@ -236,7 +236,6 @@ enLen n | n < 0   = e
 ------------------------------------------------------------------------
 -- S-expressions
 
-
 -- | Convert tag to a \"decomposed\" S-expression.
 --
 -- @Right@ elements of the resulting list can be written to stdout;
