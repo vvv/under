@@ -43,6 +43,7 @@ import Data.ByteString.Lazy (ByteString)
 import Control.Monad.State (State, runState, get, put)
 import Control.Monad.Error (Error(..), ErrorT, runErrorT, throwError)
 
+import Control.Monad (when)
 import Data.Bits
 import Data.Char (ord, chr, intToDigit)
 import Data.List (foldl')
@@ -103,7 +104,7 @@ tagID = do (s, pos) <- get
              Nothing -> err "tagID: no identifier octets to parse"
              Just (c, s') -> do put (s', pos+1)
                                 let (consp, cls, m) = tagID1 c
-                                num <- (maybe tagNum return) m
+                                num <- maybe tagNum return m
                                 return (consp, cls, num)
 
 -- | Parse the first identifier octet.
@@ -169,9 +170,8 @@ skip :: [Char] -> Parser ()
 skip fillers = do (s, pos) <- get
                   case C.uncons s of
                     Nothing      -> eof
-                    Just (c, s') -> if c `elem` fillers
-                                    then put (s', pos+1) >> skip fillers
-                                    else return ()
+                    Just (c, s') -> when (c `elem` fillers)
+                                    $ put (s', pos+1) >> skip fillers
 
 -- | ASN.1 value parser.
 tag :: Parser Tag
@@ -254,7 +254,7 @@ toSexp t = case t of
       header cls num = [ rpk $ '(':char cls:show num ]
       footer = [ rch ')' ]
 
-      repr = concatMap $ ((:) (rch ' ')) . toSexp
+      repr = concatMap $ (:) (rch ' ') . toSexp
 
       char Universal       = 'u'
       char Application     = 'a'
@@ -282,4 +282,4 @@ eof = throwError EOF
 hexDump :: String -> String
 hexDump = unwords . map (f . (`quotRem` 16) . ord)
     where
-      f (q, r) = (intToDigit q):[intToDigit r]
+      f (q, r) = intToDigit q : [intToDigit r]

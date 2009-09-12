@@ -18,10 +18,10 @@ prop_tagID1 rc = and [ tagID1 rc' == (consp, cls, mnum rc')
       classes = [Universal, Application, ContextSpecific, Private]
 
       mnum :: Char -> Maybe Int
-      mnum c = case (ord c) .&. 0x1f of { 0x1f -> Nothing; n -> Just n }
+      mnum c = case ord c .&. 0x1f of { 0x1f -> Nothing; n -> Just n }
 
       setClass :: Char -> Int -> Int
-      setClass c n = ((ord c) .&. 0x3f) .|. (n `shiftL` 6)
+      setClass c n = (ord c .&. 0x3f) .|. (n `shiftL` 6)
 
       setConsp :: Int -> Bool -> Char
       setConsp n b = chr $ (if b then setBit else clearBit) n 5

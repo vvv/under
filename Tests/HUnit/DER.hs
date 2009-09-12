@@ -41,7 +41,7 @@ err msg pos = Left . Err $ msg ++ ": byte " ++ show pos
 -- ni s = "not implemented " ++ s ==> ""
 
 tg :: String -> [Test] -> Test
-tg name ts = TestLabel name (TestList ts)
+tg name = TestLabel name . TestList
 ------------------------------------------------------------------------
 
 tst_tagNum = tg "tagNum" [
