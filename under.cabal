@@ -4,6 +4,7 @@ license:        BSD3
 copyright:      (c) 2009  Valery V. Vorotyntsev
 author:         Valery V. Vorotyntsev (vvv)
 maintainer:     valery.vv@gmail.com
+homepage:       http://github.com/vvv/under
 stability:      experimental
 synopsis:       DER data manipulation (DER = Distinguished Encoding Rules)
 description:    Decode/encode DER data streams. Convert ASN.1 values
