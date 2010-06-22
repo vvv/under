@@ -1,4 +1,10 @@
-* Overview
+************************************************************************
+* Please note, that this project was abandoned in favor of under.c --  *
+* DER decoder/encoder, implemented in C.                               *
+* Read more at <http://github.com/vvv/under.c#readme>.                 *
+************************************************************************
+
+Overview
 
   Distinguished Encoding Rules (DER) is a binary data format widely
   used for digital certificates (such as X.509) and telecom billing
@@ -17,17 +23,14 @@
     - filter DER records (under SRC | grep CRITERIA | under -e > DEST)
     - create custom binary files, etc.}
 
+See also
 
-* See also
+   * http://www.itu.int/ITU-T/studygroups/com17/languages/
 
-** ASN.1 encoding rules (BER, CER, and DER) are specified by
-   `ITU-T Recommendation X.690'
+   ASN.1 encoding rules (BER, CER, and DER) are specified by
+   `ITU-T Recommendation X.690':
 
-   http://www.itu.int/ITU-T/studygroups/com17/languages/
+   * http://lionet.info/asn1c/
 
-** asn1c -- ASN.1 compiler by Lev Walkin
-
-   http://lionet.info/asn1c/
-
-   `asn1c' comes with BER decoder and encoder. BER data is decoded to
-   XML format.
+   asn1c -- ASN.1 compiler by Lev Walkin.  It contains an `unber'
+   utility that decodes BER data to XML format.
